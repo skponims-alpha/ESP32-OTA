@@ -2,12 +2,7 @@
 #include <HardwareSerial.h>
 #include <Preferences.h>
 
-#include <DHT.h>
-#include <Adafruit_MPU6050.h>
-#include <Adafruit_Sensor.h>
-#include <Wire.h>
-#include <Adafruit_BMP085.h>
-#include <BH1750.h>
+
 #include <SPI.h>
 #include <LoRa.h>
 #include <math.h>
@@ -18,21 +13,9 @@
 
 // ===================== Pin Definitions =====================
 
-// I2C
-#define SDA_PIN 6
-#define SCL_PIN 7
 
-// DHT22
-#define DHTPIN 4
-#define DHTTYPE DHT22
-DHT dht(DHTPIN, DHTTYPE);
 
-// Soil
-#define SOIL_MOISTURE 5
-#define SOIL_TEMP_PIN 8
 
-// MPU
-#define MPU_INT_PIN 9
 
 // LoRa SX1278
 #define PIN_LORA_SCK   13
@@ -43,9 +26,7 @@ DHT dht(DHTPIN, DHTTYPE);
 #define PIN_LORA_DIO0  12
 #define LORA_FREQUENCY 433E6
 
-// Rain Sensor
-#define RAIN_PIN GPIO_NUM_16
-#define RAIN_MM_PER_TIP 0.2794
+
 
 // GSM Serial (SIM7670X)
 #define GSM_RX 17
@@ -56,18 +37,14 @@ DHT dht(DHTPIN, DHTTYPE);
 #define TIME_TO_SLEEP 600
 
 // ===================== Object Definitions =====================
-Adafruit_MPU6050 mpu;
-Adafruit_BMP085 bmp;
-BH1750 lightMeter;
-HardwareSerial SerialAt(2);
 
 ESP32S3_SIM7670_OTA ota(
     SerialAt,
     GSM_RX, GSM_TX,
-    "airtelgprs.com",
+    "network provider.com",
     "",
     "",
-    "landslidemonitoring.esy.es",
+    "apisite.com",
     80
 );
 
@@ -89,29 +66,17 @@ String sendGSMData(String url);
 bool extractOTA(String payload, String &version, String &url);
 void print_wakeup_reason();
 void readGSM();
-void initBH1750();
-void initBMP180();
-float readTemp();
-float readHumidity();
-bool initMPU();
-void readMPU();
-float readLight();
-float readPressure();
-float readSoilTemperature();
-String getS5Reading();
-String getGNSSLocation();
-float getRainfallMM();
+
 
 // ===================== ISR =====================
-void IRAM_ATTR rainISR() { rainCount++; }
-void IRAM_ATTR mpuISR()  { motionCount++; }
+
 
 // ===================== Setup =====================
 void setup() {
 
-  esp_sleep_enable_ext0_wakeup((gpio_num_t)MPU_INT_PIN, 1);
-  rtc_gpio_pullup_dis((gpio_num_t)MPU_INT_PIN);
-  rtc_gpio_pulldown_en((gpio_num_t)MPU_INT_PIN);
+  esp_sleep_enable_ext0_wakeup((gpio_num_t)INT_PIN, 1);
+  rtc_gpio_pullup_dis((gpio_num_t)PIN);
+  rtc_gpio_pulldown_en((gpio_num_tPIN);
 
   Serial.begin(115200);
   SerialAt.begin(115200, SERIAL_8N1, GSM_RX, GSM_TX);
@@ -123,23 +88,17 @@ void setup() {
   prefs.end();
   Serial.println("Triplet ID (from flash): " + tId);
 
-  pinMode(SOIL_MOISTURE, INPUT);
-  pinMode(SOIL_TEMP_PIN, INPUT);
-  pinMode(RAIN_PIN, INPUT_PULLUP);
-  pinMode(MPU_INT_PIN, INPUT);
+  pinMode( INPUT);
+  pinMode( INPUT);
+  pinMode(INPUT_PULLUP);
+  pinMode( INPUT);
 
-  attachInterrupt(digitalPinToInterrupt(RAIN_PIN), rainISR, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(MPU_INT_PIN), mpuISR, RISING);
+  attachInterrupt(digitalPinToInterrupt( CHANGE);
+  attachInterrupt(digitalPinToInterrupt( RISING);
 
   ++bootCount;
 
-  Wire.begin(SDA_PIN, SCL_PIN);
 
-  initBH1750();
-  initBMP180();
-  dht.begin();
-  initMPU();
-  readMPU();
 
   // ===================== LoRa INIT (ADDED ONLY) =====================
   Serial.println("Initializing LoRa...");
@@ -171,20 +130,12 @@ void setup() {
   }
   // ========================================================================
 
-  float rainfall = getRainfallMM();
+ 
 
   String url =
-    "http://landslidemonitoring.esy.es/ota.php?api_key=3WU63XFVOKEC1VBM"
+    "http://yourapiaddress"
     "&triplet=" + tId +
-    "&" + tId + "s1=" + String(readTemp()) + "," + String(readHumidity()) +
-    "&" + tId + "s2=" + String(readPressure()) +
-    "&" + tId + "s3=" + String(rainfall) +
-    "&" + tId + "s4=" + String(readLight()) +
-    "&" + tId + "s5=" + getS5Reading() +
-    "&" + tId + "s6=" + String(readSoilTemperature()) +
-    "&" + tId + "s7=" + String(analogRead(SOIL_MOISTURE)) +
-    "&" + tId + "s8=0" +
-    "&" + tId + "s9=00.0000|00.0000";
+    
 
   String response = sendGSMData(url);
   String otaVersion;
@@ -192,26 +143,26 @@ void setup() {
 
   // ===== OTA DECISION (UNCHANGED) =====
   if (!extractOTA(response, otaVersion, otaUrl)) {
-  Serial.println("❌ OTA PARSE FAILED");
+  Serial.println("OTA PARSE FAILED");
   return;
 }
 
-Serial.println("✅ OTA PARSE OK");
+Serial.println(" OTA PARSE OK");
 Serial.println("Version : " + otaVersion);
 Serial.println("URL (raw): " + otaUrl);
 
-// 🔥 FIX: unescape JSON URL (\/ → /)
+//  FIX: unescape JSON URL (\/ → /)
 otaUrl.replace("\\/", "/");
 
 Serial.println("URL (fixed): " + otaUrl);
 
 // Version decision
 if (otaVersion == CURRENT_FIRMWARE_VERSION) {
-  Serial.println("ℹ️ Firmware already up to date");
+  Serial.println("Firmware already up to date");
   return;
 }
 
-  Serial.println("🚀 STARTING OTA FLASH");
+  Serial.println("STARTING OTA FLASH");
   ota.performOTA(otaUrl);
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
   delay(1000);
@@ -344,14 +295,14 @@ void print_wakeup_reason() {
   esp_sleep_wakeup_cause_t reason = esp_sleep_get_wakeup_cause();
   switch (reason) {
     case ESP_SLEEP_WAKEUP_EXT0:
-      Serial.println("🔔 Wakeup: MPU interrupt");
+      Serial.println("🔔 ");
       break;
     case ESP_SLEEP_WAKEUP_EXT1:
-      Serial.println("🌧️ Wakeup: Rain interrupt");
+      Serial.println("🌧️");
       rainWake = true;
       break;
     case ESP_SLEEP_WAKEUP_TIMER:
-      Serial.println("⏰ Wakeup: Timer (scheduled)");
+      Serial.println("⏰ Wakeup");
       break;
     default:
       Serial.printf("Wakeup cause: %d\n", reason);
@@ -365,102 +316,6 @@ void readGSM() {
 }
 
 // ===================== Sensors (UNCHANGED) =====================
-void initBH1750() {
-  if (!lightMeter.begin(BH1750::CONTINUOUS_HIGH_RES_MODE, 0x23)) {
-    Serial.println("❌ BH1750 not found!");
-    while (1);
-  }
-}
-
-void initBMP180() {
-  if (!bmp.begin()) {
-    Serial.println("❌ BMP180 not found!");
-    while (1);
-  }
-}
-
-float readLight() {
-  float lux = lightMeter.readLightLevel();
-  Serial.printf("💡 Light: %.2f lx\n", lux);
-  return lux;
-}
-
-float readPressure() {
-  float p = bmp.readPressure() / 100.0;
-  Serial.printf("🌡️ Pressure: %.2f hPa\n", p);
-  return p;
-}
-
-float readSoilTemperature() {
-  int analogValue = analogRead(SOIL_TEMP_PIN);
-  float voltage = analogValue * (3.3 / 4095.0);
-  float temperatureC = (voltage / 3.3) * 100.0;
-  Serial.printf("🌱 Soil Temp: %.2f °C\n", temperatureC);
-  return temperatureC;
-}
-
-bool initMPU() {
-  if (!mpu.begin()) {
-    Serial.println("❌ MPU6050 not found!");
-    return false;
-  }
-  Serial.println("✅ MPU6050 initialized.");
-  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
-  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-  mpu.setFilterBandwidth(MPU6050_BAND_5_HZ);
-  mpu.setMotionDetectionThreshold(1);
-  mpu.setMotionDetectionDuration(1);
-  mpu.setInterruptPinLatch(true);
-  mpu.setInterruptPinPolarity(false);
-  mpu.setMotionInterrupt(true);
-  return true;
-}
-
-float readTemp() {
-  float t = dht.readTemperature();
-  if (isnan(t)) t = 255;
-  Serial.printf("🌡️ Air Temp: %.2f°C\n", t);
-  return t;
-}
-
-float readHumidity() {
-  float h = dht.readHumidity();
-  if (isnan(h)) h = 255;
-  Serial.printf("💧 Humidity: %.2f%%\n", h);
-  return h;
-}
-
-void readMPU() {
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
-
-  float Ax = a.acceleration.x;
-  float Ay = a.acceleration.y;
-  float Az = a.acceleration.z;
-
-  float Wx = g.gyro.x * (180.0 / PI);
-  float Wy = g.gyro.y * (180.0 / PI);
-  float Wz = g.gyro.z * (180.0 / PI);
-
-  // Calculate Roll, Pitch, Yaw
-  float roll  = atan2(Ay, Az) * 180.0 / PI;
-  float pitch = atan(-Ax / sqrt(Ay * Ay + Az * Az)) * 180.0 / PI;
-  float yaw   = atan2(Wy, Wx) * 180.0 / PI;  // Approx yaw
-
-  Serial.println("--------- MPU DATA ---------");
-  Serial.printf("Ax: %.2f  Ay: %.2f  Az: %.2f (m/s²)\n", Ax, Ay, Az);
-  Serial.printf("Wx: %.2f  Wy: %.2f  Wz: %.2f (°/s)\n", Wx, Wy, Wz);
-  Serial.printf("Roll:  %.2f°\nPitch: %.2f°\nYaw:   %.2f°\n", roll, pitch, yaw);
-  Serial.println("----------------------------");
-}
-
-
-float getRainfallMM() {
-  float mm = rainCount * RAIN_MM_PER_TIP;
-  Serial.printf("🌧️ Rainfall: %.2f mm\n", mm);
-  rainCount = 0;
-  return mm;
-}
 
 String getGNSSLocation() {
   SerialAt.println("AT+CGNSINF");
@@ -486,8 +341,5 @@ String getS5Reading() {
   float yaw   = atan2(g.gyro.z, g.gyro.x) * 180.0 / PI;
 
   String gnssData = getGNSSLocation();
-  return String(a.acceleration.x, 2) + "," + String(a.acceleration.y, 2) + "," +
-         String(a.acceleration.z, 2) + "," + String(g.gyro.x, 2) + "," +
-         String(g.gyro.y, 2) + "," + String(g.gyro.z, 2) + "," +
-         String(roll, 2) + "," + String(pitch, 2) + "," + String(yaw, 2) + "," + String(motionCount) + "," + "0,0";
+ 
 }
