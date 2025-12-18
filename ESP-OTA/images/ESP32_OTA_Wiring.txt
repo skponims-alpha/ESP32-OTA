@@ -1,0 +1,1 @@
+ESP32 OTA wiring: USB only for first flash. No extra components required.
